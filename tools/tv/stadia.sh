@@ -51,6 +51,7 @@ addr() {
   fi
 }
 stop_raw() { [ -n "$rawpid" ] && kill "$rawpid" 2>/dev/null; rawpid=""; }
+trap 'stop_raw; close_alert; rm -f "$RAW"; exit 0' INT TERM EXIT
 # one forget, scan, pair, connect; true when the input device came back
 repair_once() {
   a=$(addr) || return 1
@@ -98,7 +99,7 @@ while true; do
     fi
     if [ "$ok" -eq 0 ]; then
       # the hidraw node can show up a moment after the input device
-      if [ -z "$rawpid" ] && h=$(hidraw); then cat "$h" >> "$RAW" 2>/dev/null & rawpid=$!; fi
+      if [ -z "$rawpid" ] && h=$(hidraw); then dd if="$h" of="$RAW" bs=1 count=1 2>/dev/null & rawpid=$!; fi
       if [ -s "$RAW" ]; then
         ok=1; repair_until=0; stop_raw; close_alert; log "input seen: working"
       elif [ $((now - since)) -ge "$SILENT_SECS" ] && [ "$repair_until" -le "$now" ]; then

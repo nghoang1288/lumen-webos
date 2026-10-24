@@ -5,6 +5,22 @@ export interface Country { code: string; name: string; cities: City[]; }
 
 export const COUNTRIES: Country[] = [
 	{
+		"code": "VN",
+		"name": "Vietnam",
+		"cities": [
+			{"name": "Hà Nội", "lat": 21.03, "lon": 105.85},
+			{"name": "TP. Hồ Chí Minh", "lat": 10.82, "lon": 106.63},
+			{"name": "Đà Nẵng", "lat": 16.05, "lon": 108.20},
+			{"name": "Hải Phòng", "lat": 20.84, "lon": 106.69},
+			{"name": "Cần Thơ", "lat": 10.05, "lon": 105.75},
+			{"name": "Nha Trang", "lat": 12.24, "lon": 109.19},
+			{"name": "Huế", "lat": 16.46, "lon": 107.60},
+			{"name": "Đà Lạt", "lat": 11.94, "lon": 108.46},
+			{"name": "Vũng Tàu", "lat": 10.35, "lon": 107.08},
+			{"name": "Hạ Long", "lat": 20.95, "lon": 107.08}
+		]
+	},
+	{
 		"code": "PK",
 		"name": "Pakistan",
 		"cities": [

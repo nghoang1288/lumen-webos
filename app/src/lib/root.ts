@@ -63,8 +63,10 @@ const APP_ID = /^[A-Za-z0-9._-]+$/;
 /** The ids of the apps the TV has open, Lumen too. Root because the app manager's running list is not offered to apps. */
 export function runningApps (): Promise<string[]> {
 	return run(luna('luna://com.webos.applicationManager/running', {})).then((text) => {
-		const ids = (JSON.parse(text).running || []) as {id?: string}[];
-		return ids.map((a) => a.id || '').filter((id) => APP_ID.test(id));
+		try {
+			const ids = (JSON.parse(text).running || []) as {id?: string}[];
+			return ids.map((a) => a.id || '').filter((id) => APP_ID.test(id));
+		} catch { return []; }
 	});
 }
 
@@ -150,14 +152,33 @@ export function openChannel (channelId: string): Promise<void> {
 	});
 }
 
+/** Reads multiple system settings in one call. */
+export function getSettingsCategory (category: string, keys: string[]): Promise<Record<string, string>> {
+	return run(luna('luna://com.webos.settingsservice/getSystemSettings', {category, keys})).then((text) => {
+		try {
+			const m = JSON.parse(text) as {settings?: Record<string, unknown>};
+			const res: Record<string, string> = {};
+			if (m.settings) {
+				for (const k of keys) {
+					const v = m.settings[k];
+					if (v !== undefined && v !== null) res[k] = String(v);
+				}
+			}
+			return res;
+		} catch { return {}; }
+	}).catch(() => ({}));
+}
+
 /** The value of one known setting, or '' when the TV has none. */
 export function getSetting (key: string): Promise<string> {
 	const s = SETTINGS[key];
 	if (!s) return Promise.reject(new Error('unknown setting ' + key));
 	return run(luna('luna://com.webos.settingsservice/getSystemSettings', {category: s.category, keys: [key]})).then((text) => {
-		const m = JSON.parse(text) as {settings?: Record<string, unknown>};
-		const v = m.settings && m.settings[key];
-		return v === undefined || v === null ? '' : String(v);
+		try {
+			const m = JSON.parse(text) as {settings?: Record<string, unknown>};
+			const v = m.settings && m.settings[key];
+			return v === undefined || v === null ? '' : String(v);
+		} catch { return ''; }
 	});
 }
 
@@ -182,8 +203,10 @@ export function reboot (): Promise<void> {
 /** Seconds left on the sleep timer, 0 when none. webOS 25 denies tvReservationAgent to apps ("Denied method call"), hence root. */
 export function sleepRemainSeconds (): Promise<number> {
 	return run(luna('luna://com.webos.service.tvReservationAgent/timer/sleep/getRemainTime', {})).then((text) => {
-		const m = JSON.parse(text) as {sleepTimeSecond?: number};
-		return Number(m.sleepTimeSecond) || 0;
+		try {
+			const m = JSON.parse(text) as {sleepTimeSecond?: number};
+			return Number(m.sleepTimeSecond) || 0;
+		} catch { return 0; }
 	});
 }
 
@@ -230,7 +253,7 @@ const IMMICH_PATHS = [
  *  be refused. A JSON body travels as base64. `as: 'base64'` returns the response body base64-encoded (for a thumbnail). */
 export function immichRequest (base: string, key: string, path: string, opts: {body?: object; as?: 'text' | 'base64'} = {}): Promise<string> {
 	if (!IMMICH_BASE.test(base) || !IMMICH_KEY.test(key) || !IMMICH_PATHS.some((re) => re.test(path))) return Promise.reject(new Error('refused: immich request'));
-	const curl = `curl -sf -m 15 -H ${shellQuote('x-api-key: ' + key)} -H 'accept: application/json'`;
+	const curl = `curl -sf --connect-timeout 3 -m 10 -H ${shellQuote('x-api-key: ' + key)} -H 'accept: application/json'`;
 	const url = shellQuote(base + path);
 	const command = opts.body
 		? `echo ${toBase64(JSON.stringify(opts.body))} | base64 -d | ${curl} -H 'content-type: application/json' --data-binary @- ${url}`
@@ -242,12 +265,12 @@ export function immichRequest (base: string, key: string, path: string, opts: {b
  *  Only the ids leave the TV, since the full answer carries every photo in every stack. Needs the API key to have stack.read. */
 export function immichStackIds (base: string, key: string): Promise<string> {
 	if (!IMMICH_BASE.test(base) || !IMMICH_KEY.test(key)) return Promise.reject(new Error('refused: immich request'));
-	const curl = `curl -sf -m 15 -H ${shellQuote('x-api-key: ' + key)} -H 'accept: application/json'`;
+	const curl = `curl -sf --connect-timeout 3 -m 10 -H ${shellQuote('x-api-key: ' + key)} -H 'accept: application/json'`;
 	return run(`${curl} ${shellQuote(base + '/api/stacks')} | grep -oE '"(primaryAssetId|id)":"[0-9a-f-]{36}"' | sed -e 's/^"primaryAssetId":"//' -e 's/^"id":"/=/' -e 's/"$//'`, 20000);
 }
 
 /** Lumen's own install folder: the only place the app may read files from, and the only one copyFontIn writes to. */
-const APP_DIR = /^\/media\/developer\/apps\/usr\/palm\/applications\/com\.samrenfrew\.lumen(\.dev)?$/;
+const APP_DIR = /^\/media\/developer\/apps\/usr\/palm\/applications\/[A-Za-z0-9._-]+$/;
 
 /** Copies the SF font that tools/push_sf_font.sh put on the TV into the app's folder (each Channel update replaces the folder). True when copied. */
 export function copyFontIn (appDir: string): Promise<boolean> {
@@ -284,7 +307,8 @@ function toBase64 (text: string): string {
 }
 
 function fromBase64 (b64: string): string {
-	if (!b64) return '';
-	if (!BASE64.test(b64)) throw new Error('bad base64 from the TV');
-	return decodeURIComponent(escape(atob(b64)));
+	const clean = (b64 || '').replace(/\s+/g, '');
+	if (!clean) return '';
+	if (!BASE64.test(clean)) throw new Error('bad base64 from the TV');
+	return decodeURIComponent(escape(atob(clean)));
 }

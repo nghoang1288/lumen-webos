@@ -35,7 +35,7 @@ export function Grid ({items, mode, checkedKeys, liftedIndex, focused, selected,
 		const first = track.current && track.current.firstElementChild as HTMLElement | null;
 		const measured = first && first.offsetHeight ? first.offsetHeight + GRID_ROW_GAP : 0;
 		if (measured && Math.abs(measured - step) > 1) setStep(measured);
-	});
+	}, [items.length]);
 	const rows = Math.ceil(items.length / LAYOUT.gridColumns);
 	const total = rows * step - GRID_ROW_GAP;
 	const rowIndex = Math.floor(selected / LAYOUT.gridColumns);

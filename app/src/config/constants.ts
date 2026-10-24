@@ -26,7 +26,9 @@ export const KEY = {
 	left: 37, up: 38, right: 39, down: 40,
 	enter: 13,
 	back: 461,          // webOS "BACK" (needs disableBackHistoryAPI in appinfo.json)
-	escape: 27          // handy when developing in a desktop browser
+	escape: 27,         // handy when developing in a desktop browser
+	pageUp: 33,         // Channel Up (CH+)
+	pageDown: 34        // Channel Down (CH-)
 } as const;
 
 export const TIMING = {

@@ -109,9 +109,16 @@ export function setLiveBlur (on: boolean): void {
 
 /** Object URLs of the stored copies of the picture on screen (cloud pictures read from the TV), in place of the resizer's URLs. */
 let local: {full: string; light: string; strong: string} | null = null;
+const revokeLater: string[] = [];
+function flushRevoke (): void {
+	while (revokeLater.length > 0) {
+		const u = revokeLater.shift()!;
+		if (u.indexOf('blob:') === 0) URL.revokeObjectURL(u);
+	}
+}
 function useLocal (pics: Pics | {full: string; light: string; strong: string} | null): void {
-	if (local) [local.full, local.light, local.strong].forEach((u) => { if (u.indexOf('blob:') === 0) URL.revokeObjectURL(u); });
-	if (!pics) { local = null; return; }
+	if (local) [local.full, local.light, local.strong].forEach((u) => { if (u.indexOf('blob:') === 0) revokeLater.push(u); });
+	if (!pics) { local = null; flushRevoke(); return; }
 	const url = (v: Blob | string) => typeof v === 'string' ? v : URL.createObjectURL(v);
 	local = {full: url(pics.full), light: url(pics.light), strong: url(pics.strong)};
 }
@@ -249,7 +256,7 @@ function paint (el: HTMLElement, src: string, pos: string): void {
 	if (old) old.remove();
 	const next = cssImage(src);
 	const pair = isPair(src);
-	if (!before || before === 'none' || before === next || document.documentElement.classList.contains('reduce-motion')) { el.style.backgroundImage = next; el.style.backgroundPosition = pos; el.classList.toggle('wp-pair', pair); return; }
+	if (!before || before === 'none' || before === next || document.documentElement.classList.contains('reduce-motion')) { el.style.backgroundImage = next; el.style.backgroundPosition = pos; el.classList.toggle('wp-pair', pair); flushRevoke(); return; }
 	// the new picture on a layer inside #wpimage (so night dimming covers it), faded with opacity only, then moved onto #wpimage itself
 	const layer = document.createElement('div');
 	layer.className = pair ? 'wpfade wp-pair' : 'wpfade';
@@ -257,7 +264,7 @@ function paint (el: HTMLElement, src: string, pos: string): void {
 	layer.style.backgroundPosition = pos;
 	el.appendChild(layer);
 	window.requestAnimationFrame(() => window.requestAnimationFrame(() => { layer.style.opacity = '1'; }));
-	fadeTimer = window.setTimeout(() => { el.style.backgroundImage = next; el.style.backgroundPosition = pos; el.classList.toggle('wp-pair', pair); layer.remove(); }, FADE_MS + 60);
+	fadeTimer = window.setTimeout(() => { el.style.backgroundImage = next; el.style.backgroundPosition = pos; el.classList.toggle('wp-pair', pair); layer.remove(); flushRevoke(); }, FADE_MS + 60);
 }
 
 /** The sharp picture on screen now (one URL, or two for a portrait pair) and its Immich id, or null when none is painted. */

@@ -33,11 +33,14 @@ export function readControls (): Promise<Controls> {
 		out.volume = Number(r.volume) || 0;
 		out.muted = r.muteStatus === true;
 	}).catch(() => undefined);
-	const picture = root.getSetting('pictureMode').then((v) => { if (v) out.picture = v; }).catch(() => undefined);
+	const picture = root.getSettingsCategory('picture', ['pictureMode', 'backlight', 'eyeComfortMode']).then((res) => {
+		if (res.pictureMode) out.picture = res.pictureMode;
+		const n = Number(res.backlight);
+		if (res.backlight !== undefined && res.backlight !== '' && Number.isInteger(n) && n >= 0 && n <= 100) out.backlight = n;
+		if (res.eyeComfortMode !== undefined) out.eyeComfort = res.eyeComfortMode === 'on';
+	}).catch(() => undefined);
 	const sound = root.getSetting('soundMode').then((v) => { if (v) out.sound = v; }).catch(() => undefined);
-	const backlight = readBacklight().then((v) => { if (v !== null) out.backlight = v; });
-	const eye = root.getSetting('eyeComfortMode').then((v) => { out.eyeComfort = v === 'on'; }).catch(() => undefined);
-	return Promise.all([audio, picture, sound, backlight, eye]).then(() => out);
+	return Promise.all([audio, picture, sound]).then(() => out);
 }
 
 /** The backlight of the picture mode in use, or null when it can't be read. Read again after a picture mode change: each mode has its own. */

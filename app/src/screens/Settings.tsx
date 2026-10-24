@@ -286,6 +286,8 @@ export function Settings ({tabs, wallpaper, options, active, onToggle, onReorder
 			const at = latest.current[latest.current.length - 1].focus;
 			if (key === 'up') setFocus(clamp(at - 1, 0, list.rows.length - 1));
 			else if (key === 'down') setFocus(clamp(at + 1, 0, list.rows.length - 1));
+			else if (key === 'pageup') setFocus(clamp(at - 6, 0, list.rows.length - 1));
+			else if (key === 'pagedown') setFocus(clamp(at + 6, 0, list.rows.length - 1));
 			return true;
 		}
 
@@ -314,6 +316,8 @@ export function Settings ({tabs, wallpaper, options, active, onToggle, onReorder
 			else if (key === 'right') setWpIndex((i) => clamp(i + 1, 0, last));
 			else if (key === 'up') { if (wpIndex < WALLPAPER_COLUMNS) setZone('chips'); else setWpIndex((i) => i - WALLPAPER_COLUMNS); }
 			else if (key === 'down') setWpIndex((i) => (i + WALLPAPER_COLUMNS <= last ? i + WALLPAPER_COLUMNS : i));
+			else if (key === 'pageup') setWpIndex((i) => (i >= WALLPAPER_COLUMNS * 2 ? i - WALLPAPER_COLUMNS * 2 : 0));
+			else if (key === 'pagedown') setWpIndex((i) => (i + WALLPAPER_COLUMNS * 2 <= last ? i + WALLPAPER_COLUMNS * 2 : last));
 			return true;
 		}
 
@@ -323,6 +327,8 @@ export function Settings ({tabs, wallpaper, options, active, onToggle, onReorder
 			case 'right': setGridIndex((i) => clamp(i + 1, 0, count - 1)); break;
 			case 'up': if (gridIndex >= cols) setGridIndex((i) => i - cols); else setZone('button'); break;
 			case 'down': setGridIndex((i) => (i + cols < count ? i + cols : i)); break;
+			case 'pageup': setGridIndex((i) => (i >= cols * 3 ? i - cols * 3 : 0)); break;
+			case 'pagedown': setGridIndex((i) => (i + cols * 3 < count ? i + cols * 3 : count - 1)); break;
 		}
 		return true;
 	};

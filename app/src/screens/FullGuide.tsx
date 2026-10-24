@@ -78,6 +78,8 @@ export function FullGuide ({channels, listings, from, thin, loading, logos, now,
 		if (key === 'back') onClose();
 		else if (key === 'up') { if (at === 0) onTop(); else onAt(at - 1); }
 		else if (key === 'down') onAt(clamp(at + 1, 0, Math.max(0, last)));
+		else if (key === 'pageup') onAt(clamp(at - IN_VIEW, 0, Math.max(0, last)));
+		else if (key === 'pagedown') onAt(clamp(at + IN_VIEW, 0, Math.max(0, last)));
 		else if (key === 'right' || key === 'left') {
 			const list = listOf(channels[at]);
 			const i = focused ? list.indexOf(focused) : -1;

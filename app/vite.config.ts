@@ -1,5 +1,5 @@
 import {cpSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs';
-import {dirname, join, normalize, resolve} from 'node:path';
+import {dirname, join, normalize, resolve, sep} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {defineConfig, loadEnv, type Plugin} from 'vite';
 import preact from '@preact/preset-vite';
@@ -79,7 +79,7 @@ function classicScriptTag (): Plugin {
 				server.middlewares.use((req, res, next) => {
 					const path = decodeURIComponent((req.url || '').split('?')[0]);
 					const file = normalize(join(privateDir, path));
-					if (!file.startsWith(privateDir + '/') || file.endsWith('wallpapers.json') || !existsSync(file) || !statSync(file).isFile()) { next(); return; }
+					if ((!file.startsWith(privateDir + sep) && !file.startsWith(privateDir + '/')) || file.endsWith('wallpapers.json') || !existsSync(file) || !statSync(file).isFile()) { next(); return; }
 					res.end(readFileSync(file));
 				});
 			},

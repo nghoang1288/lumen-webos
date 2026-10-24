@@ -34,6 +34,13 @@ WAKE_SECS=30
 WAKE_SETTLE=3
 NOPRELOAD_FLAG=/var/lib/homehook/no-boot-preload
 RECENT=/var/lib/homehook/recent
+LOGFILE=/tmp/homehook.log
+log_msg() {
+  echo "$(date +%T) $1" >> "$LOGFILE"
+  if [ -f "$LOGFILE" ] && [ $(wc -c < "$LOGFILE" 2>/dev/null || echo 0) -gt 65536 ]; then
+    tail -c 32768 "$LOGFILE" > "$LOGFILE.tmp" 2>/dev/null && mv "$LOGFILE.tmp" "$LOGFILE"
+  fi
+}
 prev=""
 prevapp=""
 last=0
@@ -73,7 +80,7 @@ wake_open() {
   [ "$launchpid" -gt 0 ] && [ -d "/proc/$launchpid" ] && return
   target=$(me_target) || return
   ( r=$(luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$target\"}" </dev/null 2>&1)
-    echo "$(date +%T) wake: open $target over ${1:-nothing}: $r" >> /tmp/homehook.log ) &
+    log_msg "wake: open $target over ${1:-nothing}: $r" ) &
   launchpid=$!
 }
 
@@ -90,7 +97,7 @@ while true; do
   [ -n "$pwstate" ] && pwlast=$pwstate
   if [ "$woke" -eq 1 ]; then
     wakeuntil=$((now + WAKE_SECS)); last=0
-    echo "$(date +%T) wake (gap ${gap}s, power $pwstate)" >> /tmp/homehook.log
+    log_msg "wake (gap ${gap}s, power $pwstate)"
     # before the foreground query: right after a wake each query can take seconds
     [ ! -f "$NOWAKE_FLAG" ] && [ "$pwstate" = Active ] && wake_open ""
   fi
@@ -135,7 +142,7 @@ while true; do
   if [ -f "$VIDEO_FLAG" ] && [ -n "$front" ]; then vid=1; fi
   if [ "$vid" -eq 1 ]; then
     case "$pw" in
-      *'"Screen Saver"'*) luna-send -n 1 luna://com.webos.service.tvpower/power/turnOnScreen '{}' </dev/null >/dev/null 2>&1; echo "$(date +%T) ended screensaver (video wallpaper)" >> /tmp/homehook.log ;;
+      *'"Screen Saver"'*) luna-send -n 1 luna://com.webos.service.tvpower/power/turnOnScreen '{}' </dev/null >/dev/null 2>&1; log_msg "ended screensaver (video wallpaper)" ;;
     esac
   elif [ -f "$AMBIENT_FLAG" ] && target=$(me_target); then
     # Lumen's ambient screen (your photos) instead of LG's screensaver. While it is up, LG's screensaver still starts after its timer (nothing
@@ -147,7 +154,7 @@ while true; do
         elif [ "$pwprev" != "saver" ] && [ $((now - saverlast)) -ge 5 ]; then
           saverlast=$now
           r=$(luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$target\",\"params\":{\"view\":\"ambient\"}}" </dev/null 2>&1)
-          echo "$(date +%T) screensaver: ambient ($target): $r" >> /tmp/homehook.log
+          log_msg "screensaver: ambient ($target): $r"
           sleep 1
           luna-send -n 1 luna://com.webos.service.tvpower/power/turnOnScreen '{}' </dev/null >/dev/null 2>&1
         fi
@@ -162,10 +169,10 @@ while true; do
           now=$(date +%s)
           if [ $((now - saverlast)) -ge 5 ]; then
             saverlast=$now
-            echo "$(date +%T) screensaver seen; foreground: $out" >> /tmp/homehook.log
+            log_msg "screensaver seen; foreground: $out"
             case "$out" in
               *'"appId":"'$FRAME'"'*) ;;
-              *) r=$(luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$FRAME\",\"params\":{\"mode\":\"screensaver\"}}" </dev/null 2>&1); echo "$(date +%T) launch Frame: $r" >> /tmp/homehook.log; sleep 1 ;;
+              *) r=$(luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$FRAME\",\"params\":{\"mode\":\"screensaver\"}}" </dev/null 2>&1); log_msg "launch Frame: $r"; sleep 1 ;;
             esac
             luna-send -n 1 luna://com.webos.service.tvpower/power/turnOnScreen '{}' </dev/null >/dev/null 2>&1
           fi
@@ -184,7 +191,7 @@ while true; do
       for id in $ME; do case "$run" in *'"id":"'$id'"'*) open=1 ;; esac; done
       if [ "$open" -eq 0 ]; then
         r=$(luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$target\",\"preload\":\"full\"}" </dev/null 2>&1)
-        echo "$(date +%T) boot preload ($target): $r" >> /tmp/homehook.log
+        log_msg "boot preload ($target): $r"
       fi
     fi
   fi

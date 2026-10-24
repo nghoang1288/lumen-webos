@@ -1,3 +1,4 @@
+import {useRef} from 'preact/hooks';
 import {clamp} from '../hooks/useKeys';
 
 export interface WallpaperEntry {
@@ -38,8 +39,8 @@ const ROWS_AFTER = 4;
 /** Wallpaper tab of Settings: category chips on top, a grid of thumbnails below, each ticked when it is picked. */
 export function WallpaperPicker ({categories, categoryIndex, entries, current, chipsFocused, gridFocused, selected, onCategory, onSelect, onActivate, onHold, note}: Props) {
 	const viewport = note ? VIEWPORT_HEIGHT - 70 : VIEWPORT_HEIGHT;
-	let holdTimer = 0;
-	let held = false;
+	const holdTimer = useRef(0);
+	const held = useRef(false);
 	const rows = Math.ceil(entries.length / WALLPAPER_COLUMNS);
 	const total = rows * ROW_STEP;
 	const row = Math.floor(selected / WALLPAPER_COLUMNS);
@@ -64,9 +65,9 @@ export function WallpaperPicker ({categories, categoryIndex, entries, current, c
 							style={{left: `${(i % WALLPAPER_COLUMNS) * COL_STEP}px`, top: `${Math.floor(i / WALLPAPER_COLUMNS) * ROW_STEP}px`}}
 							class={['wp__item', gridFocused && i === selected && 'wp__item--focused', (e.key === current || e.on) && 'wp__item--current'].filter(Boolean).join(' ')}
 							onMouseEnter={() => onSelect(i)}
-							onMouseDown={() => { held = false; window.clearTimeout(holdTimer); holdTimer = window.setTimeout(() => { held = true; if (onHold) onHold(i); }, 600); }}
-							onMouseUp={() => window.clearTimeout(holdTimer)}
-							onClick={() => { if (held) { held = false; return; } onActivate(i); }}
+							onMouseDown={() => { held.current = false; window.clearTimeout(holdTimer.current); holdTimer.current = window.setTimeout(() => { held.current = true; if (onHold) onHold(i); }, 600); }}
+							onMouseUp={() => window.clearTimeout(holdTimer.current)}
+							onClick={() => { if (held.current) { held.current = false; return; } onActivate(i); }}
 						>
 							<div class="wp__thumb" style={e.thumb ? {backgroundImage: `url("${e.thumb}")`} : e.tint ? {background: e.tint} : undefined}>
 								{!e.thumb && <span class="wp__thumbtext">{e.tint ? '\u25B6' : e.label || e.title}</span>}

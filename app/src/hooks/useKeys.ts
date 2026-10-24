@@ -1,11 +1,12 @@
 import {useEffect} from 'preact/hooks';
 import {KEY} from '../config/constants';
 
-export type NavKey = 'left' | 'right' | 'up' | 'down' | 'enter' | 'back';
+export type NavKey = 'left' | 'right' | 'up' | 'down' | 'enter' | 'back' | 'pageup' | 'pagedown';
 
 const CODE_TO_KEY: Record<number, NavKey> = {
 	[KEY.left]: 'left', [KEY.right]: 'right', [KEY.up]: 'up', [KEY.down]: 'down',
-	[KEY.enter]: 'enter', [KEY.back]: 'back', [KEY.escape]: 'back'
+	[KEY.enter]: 'enter', [KEY.back]: 'back', [KEY.escape]: 'back',
+	[KEY.pageUp]: 'pageup', [KEY.pageDown]: 'pagedown'
 };
 
 /** Subscribes to remote-control keys while `active`. The handler returns true when it

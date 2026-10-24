@@ -1,3 +1,4 @@
+import {useRef} from 'preact/hooks';
 import {CheckMark, Glyph, type GlyphName} from './Glyph';
 import {ChannelTile, type LiveTile} from './ChannelTile';
 
@@ -41,21 +42,41 @@ interface Props {
 export function Tile ({model, focused, lifted, checked, dimmed, onHover, onActivate}: Props) {
 	const classes = ['tile', focused && 'tile--focused', lifted && 'tile--lifted', dimmed && 'tile--dimmed'].filter(Boolean).join(' ');
 	if (model.live) return <ChannelTile live={model.live} classes={classes} onHover={onHover} onActivate={onActivate} />;
+	const rectRef = useRef<DOMRect | null>(null);
+	const boxRef = useRef<HTMLElement | null>(null);
+
+	const handleMouseEnter = (e: MouseEvent) => {
+		const el = e.currentTarget as HTMLElement;
+		rectRef.current = el.getBoundingClientRect();
+		boxRef.current = el.querySelector('.tile__box');
+		if (onHover) onHover();
+	};
+
 	// pointer: the focused tile tilts a little towards the cursor, like the Apple TV parallax (transform only, set straight on the element)
 	const tilt = (e: MouseEvent) => {
 		const el = e.currentTarget as HTMLElement;
-		const box = el.querySelector('.tile__box') as HTMLElement | null;
+		let box = boxRef.current;
+		if (!box) {
+			box = el.querySelector('.tile__box');
+			boxRef.current = box;
+		}
 		if (!box) return;
-		const r = el.getBoundingClientRect();
+		let r = rectRef.current;
+		if (!r) {
+			r = el.getBoundingClientRect();
+			rectRef.current = r;
+		}
 		box.style.setProperty('--rx', (-((e.clientY - r.top) / r.height - 0.5) * 10).toFixed(1) + 'deg');
 		box.style.setProperty('--ry', (((e.clientX - r.left) / r.width - 0.5) * 12).toFixed(1) + 'deg');
 	};
 	const untilt = (e: MouseEvent) => {
-		const box = (e.currentTarget as HTMLElement).querySelector('.tile__box') as HTMLElement | null;
+		rectRef.current = null;
+		const box = boxRef.current || (e.currentTarget as HTMLElement).querySelector('.tile__box') as HTMLElement | null;
 		if (box) { box.style.removeProperty('--rx'); box.style.removeProperty('--ry'); }
+		boxRef.current = null;
 	};
 	return (
-		<div class={classes} onMouseEnter={onHover} onClick={onActivate} onMouseMove={focused ? tilt : undefined} onMouseLeave={untilt}>
+		<div class={classes} onMouseEnter={handleMouseEnter} onClick={onActivate} onMouseMove={focused ? tilt : undefined} onMouseLeave={untilt}>
 			<div class={model.running ? 'tile__dot tile__dot--on' : 'tile__dot'} />
 			<div class="tile__box" style={model.color && (!model.imageUrl || model.plain) ? {background: model.color} : undefined}>
 				{model.children

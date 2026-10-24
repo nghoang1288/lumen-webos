@@ -506,7 +506,7 @@ export function Home ({rows, topItems, menuItems, inputs, active, onActivate, sh
 			shift = Math.max(shift, tilesTop(kids[rowIndex]) - GRID_BOTTOM + (rows[rowIndex].below || 0));
 		}
 		el.style.setProperty('--lower-shift', shift + 'px');
-	});
+	}, [lower, rowIndex, rows]);
 	const overlay = n.zone === 'panel' || n.zone === 'menu' || n.zone === 'ctx' || n.zone === 'folder';
 	const topPointer = (i: number) => () => { if (!overlay && realPointer.current) { n.mode = 'pointer'; n.engaged = true; n.zone = 'top'; n.topIndex = i; render(); } };
 	const focusedTop = (i: number) => n.engaged && n.zone === 'top' && i === n.topIndex;

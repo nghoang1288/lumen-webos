@@ -62,6 +62,8 @@ export function Guide ({channels, listings, logos, now, schedule, pending, full,
 		}
 		else if (key === 'up') { if (at === 0) setOnSwitch(true); else setFocus(at - 1); }
 		else if (key === 'down') setFocus((f) => clamp(f + 1, 0, Math.max(0, last)));
+		else if (key === 'pageup') setFocus((f) => clamp(f - IN_VIEW, 0, Math.max(0, last)));
+		else if (key === 'pagedown') setFocus((f) => clamp(f + IN_VIEW, 0, Math.max(0, last)));
 		return true;
 	}, [at, last, onSwitch, onMode, onClose]);
 	useKeys(handleKey, active && !gridKeys);

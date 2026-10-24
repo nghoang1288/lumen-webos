@@ -29,7 +29,8 @@
           if (boot.sel && config.wallpaper && boot.sel !== config.wallpaper) return;
           var root = document.documentElement;
           var hour = new Date().getHours();
-          if (config.nightDim === true && (hour >= 19 || hour < 6)) root.classList.add('night');
+          var dim = config.wallpaperDim || (config.nightDim === true ? 'night' : 'off');
+          if (dim === 'always' || (dim === 'night' && (hour >= 19 || hour < 6))) root.classList.add('night');
           root.classList.add('wp-image');
           if (boot.url) {
             // a bundled picture: sharp at once
