@@ -7,6 +7,8 @@ import {WALLPAPERS} from '../config/wallpapers';
 
 /** Settings > Screensaver > Start on the home screen after: the choices, in seconds (0 = never). */
 export const IDLE_SECONDS = [0, 30, 60, 120, 300];
+/** Settings > Wallpaper > Auto change interval in minutes (0 = off). */
+export const WP_AUTO_CHOICES = [0, 0.5, 1, 5, 15, 30, 60];
 
 export interface UserConfig {
 	/** ordered app IDs for the Apps row */
@@ -193,14 +195,25 @@ export function parseConfig (raw: string): UserConfig {
 		recentIds: Array.isArray(parsed.recentIds) ? parsed.recentIds : [],
 		idleSeconds: IDLE_SECONDS.indexOf(Number(parsed.idleSeconds)) !== -1 ? Number(parsed.idleSeconds) : 0,
 		favoriteWallpapers: Array.isArray(parsed.favoriteWallpapers) ? parsed.favoriteWallpapers : [],
-		wpAutoMinutes: typeof parsed.wpAutoMinutes === 'number' ? parsed.wpAutoMinutes : 0,
+		wpAutoMinutes: WP_AUTO_CHOICES.indexOf(Number(parsed.wpAutoMinutes)) !== -1 ? Number(parsed.wpAutoMinutes) : 0,
 		wallpaperDim: parsed.wallpaperDim === 'night' || parsed.wallpaperDim === 'always' ? parsed.wallpaperDim : parsed.nightDim === true ? 'night' : 'off',
 		dockDim: parsed.dockDim === true,
 		showAllApps: parsed.showAllApps === true,
 		showWeather: parsed.showWeather !== false,
 		weatherCountry: typeof parsed.weatherCountry === 'string' ? parsed.weatherCountry : '',
 		weatherCity: typeof parsed.weatherCity === 'string' ? parsed.weatherCity : '',
-		folders: Array.isArray(parsed.folders) ? parsed.folders : [],
+		folders: Array.isArray(parsed.folders)
+			? parsed.folders
+				.filter((f): f is {name: string; appIds: string[]} =>
+					typeof f === 'object' && f !== null &&
+					typeof f.name === 'string' && f.name.trim().length > 0 &&
+					Array.isArray(f.appIds)
+				)
+				.map((f) => ({
+					name: f.name.trim(),
+					appIds: f.appIds.filter((id): id is string => typeof id === 'string' && id.trim().length > 0)
+				}))
+			: [],
 		reduceMotion: parsed.reduceMotion === true,
 		hideNames: parsed.hideNames === true,
 		showRecents: parsed.showRecents !== false,

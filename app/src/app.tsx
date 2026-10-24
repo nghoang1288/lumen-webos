@@ -13,7 +13,7 @@ import {listInputs, MOCK_INPUTS, type InputSource} from './lib/inputs';
 import {launchApp, launchLgHome} from './lib/launch';
 import {isWebOS} from './lib/luna';
 import {hidePointerOnForeground} from './lib/pointer';
-import {DEFAULT_CONFIG, IDLE_SECONDS, hasSavedConfig, loadConfig, saveConfig, toggleId, withWallpaper, type UserConfig} from './lib/storage';
+import {DEFAULT_CONFIG, IDLE_SECONDS, WP_AUTO_CHOICES, hasSavedConfig, loadConfig, saveConfig, toggleId, withWallpaper, type UserConfig} from './lib/storage';
 import {readBackup, scheduleBackup} from './lib/backup';
 import {onRelaunch, startParams, type LaunchParams} from './lib/launchParams';
 import {appTile, inputTile, pickInOrder} from './lib/tiles';
@@ -47,7 +47,6 @@ const LIVE_INFO_W = 660;
 const LIVE_BELOW = 150;
 const MISC = {lgHome: 'lg-home', settings: 'settings'} as const;
 const OPTION = {liveTv: 'live-tv-row', ambient: 'ambient', ambientOn: 'ambient-on', ambientSeconds: 'ambient-seconds', ambientBrightness: 'ambient-brightness', ambientPrint: 'ambient-print', fps: 'fps-counter', restore: 'restore-backup', focus: 'focus-strength', firstRow: 'first-row', videoHours: 'video-hours', dockBlur: 'dock-blur', liquidDock: 'liquid-dock', reduceMotion: 'reduce-motion', hideNames: 'hide-names', showRecents: 'show-recents', useHomebrew: 'use-homebrew', videoWallpaper: 'video-wallpaper', videoClip: 'video-clip', dockHide: 'dock-hide', showAmPm: 'show-ampm', showAll: 'show-all-apps', weather: 'show-weather', city: 'weather-city', country: 'weather-country', idle: 'idle-screensaver', wpAuto: 'wp-auto', immichDays: 'immich-recent-days', wpType: 'wp-type', wpNew: 'wp-new', nightDim: 'night-dim', dockDim: 'dock-dim', darkMode: 'dark-mode', language: 'language', clock: 'clock-format'} as const;
-const WP_AUTO_CHOICES = [0, 0.5, 1, 5, 15, 30, 60];   // minutes
 /** when the video wallpaper plays (Settings > Wallpaper > Video wallpaper hours): [first hour, hour it stops]; always = no limit */
 const VIDEO_HOURS: Record<string, [number, number]> = {day: [7, 19], evening: [17, 23], night: [19, 7]};
 function inVideoHours (mode: string, now = new Date()): boolean {

@@ -33,10 +33,23 @@ export function cachedServer (): ImmichServer | null { return readCache<ImmichSe
 /** Reads /var/lib/homehook/immich.json ({"url": "http://192.168.1.10:2283", "key": "..."}). Resolves null when it is missing or wrong. */
 export function loadServer (): Promise<ImmichServer | null> {
 	return readFile('immich.json').then((text) => {
-		if (!text.trim()) { writeCache(SERVER_KEY, null); return null; }
+		const prev = cachedServer();
+		if (!text.trim()) {
+			writeCache(SERVER_KEY, null);
+			writeCache(POOL_KEY, null);
+			writeCache(STACKS_KEY, null);
+			writeCache('lumen-ambient-last', null);
+			return null;
+		}
 		const j = JSON.parse(text) as {url?: string; key?: string};
 		const url = String(j.url || '').trim().replace(/\/+$/, '').replace(/\/api$/, '');
 		const server = j.key ? {url, key: String(j.key).trim()} : null;
+		const changed = !prev || !server || prev.url !== server.url || prev.key !== server.key;
+		if (changed) {
+			writeCache(POOL_KEY, null);
+			writeCache(STACKS_KEY, null);
+			writeCache('lumen-ambient-last', null);
+		}
 		writeCache(SERVER_KEY, server);
 		return server;
 	}).catch(() => cachedServer());

@@ -181,8 +181,8 @@ function prepareNext (sel: string): void {
 		const full = resized(cloudUrl(item), 1920);
 		const light = lightFor(full) as string;
 		getPics(full)
-			.then((have) => have || Promise.all([fetchBlob(full), fetchBlob(light), fetchBlob(strongFor(light))])
-				.then(([f, l, s]) => { const pics = {full: f, light: l, strong: s}; return putPics(full, pics).then(() => pics); }))
+			.then((have) => have || Promise.all([fetchBlob(full), fetchBlob(strongFor(light))])
+				.then(([f, s]) => { const pics = {full: f, light: s, strong: s}; return putPics(full, pics).then(() => pics); }))
 			.then((pics) => blobToDataUrl(pics.strong))
 			.then((bg) => {
 				if (sel !== currentSel) return;
@@ -303,6 +303,48 @@ export function setWallpaper (sel: string): void {
 		prepareNext(sel);
 		markShown();
 	};
+
+	function tryAt (i: number): void {
+		if (mine !== token) return;                      // a newer choice replaced this one
+		if (i >= list.length) { root.remove(HTML_CLASS); setCaption(null); markShown(); return; }
+		const c = list[i];
+		// a cloud picture already on the TV (prepared by the last launch) is read from there; anything else comes from its URL
+		const stored = c.src.indexOf(PROXY) === 0 ? getPics(c.src) : Promise.resolve(null);
+		stored.then((pics) => {
+			if (mine !== token) return;
+			useLocal(pics);
+			const src = local ? local.full : c.src;
+			const img = new Image();
+			let settled = false;
+			const timer = window.setTimeout(() => {
+				if (settled) return;
+				settled = true;
+				img.onload = null;
+				img.onerror = null;
+				img.src = '';
+				useLocal(null);
+				tryAt(i + 1);
+			}, 10000);
+			img.onload = () => {
+				if (settled) return;
+				settled = true;
+				window.clearTimeout(timer);
+				bootMark('wp-loaded', `${img.naturalWidth}px`);
+				// decode off the main thread before the swap, so the first frame with the new picture does not stall on decoding it
+				const ready = typeof img.decode === 'function' ? img.decode().catch(() => undefined) : Promise.resolve();
+				ready.then(() => { bootMark('wp-decoded'); if (mine === token) show(c, [img], src); });
+			};
+			img.onerror = () => {
+				if (settled) return;
+				settled = true;
+				window.clearTimeout(timer);
+				useLocal(null);
+				tryAt(i + 1);
+			};
+			img.src = src;
+		});
+	}
+
 	if (sel.indexOf('immich:') === 0) {
 		// on failure (no server set up, server away, nothing matches) the bundled default is shown, as for a cloud picture that will not load
 		const fallback = () => { if (mine === token) { useLocal(null); tryAt(list.length - 1); } };
@@ -312,8 +354,17 @@ export function setWallpaper (sel: string): void {
 			// both halves of a portrait pair are loaded and decoded before either shows
 			const load = (url: string) => new Promise<HTMLImageElement>((resolve, reject) => {
 				const img = new Image();
-				img.onload = () => resolve(img);
-				img.onerror = reject;
+				let settled = false;
+				const timer = window.setTimeout(() => {
+					if (settled) return;
+					settled = true;
+					img.onload = null;
+					img.onerror = null;
+					img.src = '';
+					reject(new Error('timeout'));
+				}, 10000);
+				img.onload = () => { if (!settled) { settled = true; window.clearTimeout(timer); resolve(img); } };
+				img.onerror = () => { if (!settled) { settled = true; window.clearTimeout(timer); reject(); } };
 				img.src = url;
 			});
 			const decode = (img: HTMLImageElement) => typeof img.decode === 'function' ? img.decode().catch(() => undefined) : Promise.resolve();
@@ -329,26 +380,6 @@ export function setWallpaper (sel: string): void {
 		}, fallback);
 		return;
 	}
-	const tryAt = (i: number) => {
-		if (mine !== token) return;                      // a newer choice replaced this one
-		if (i >= list.length) { root.remove(HTML_CLASS); setCaption(null); markShown(); return; }
-		const c = list[i];
-		// a cloud picture already on the TV (prepared by the last launch) is read from there; anything else comes from its URL
-		const stored = c.src.indexOf(PROXY) === 0 ? getPics(c.src) : Promise.resolve(null);
-		stored.then((pics) => {
-			if (mine !== token) return;
-			useLocal(pics);
-			const src = local ? local.full : c.src;
-			const img = new Image();
-			img.onload = () => {
-				bootMark('wp-loaded', `${img.naturalWidth}px`);
-				// decode off the main thread before the swap, so the first frame with the new picture does not stall on decoding it
-				const ready = typeof img.decode === 'function' ? img.decode().catch(() => undefined) : Promise.resolve();
-				ready.then(() => { bootMark('wp-decoded'); if (mine === token) show(c, [img], src); });
-			};
-			img.onerror = () => { useLocal(null); tryAt(i + 1); };
-			img.src = src;
-		});
-	};
+
 	tryAt(0);
 }

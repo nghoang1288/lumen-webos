@@ -16,6 +16,40 @@ const CLOSE_MS = 500;
 /** the last photo shown, so the TV's screensaver opens on a picture (from the browser cache) rather than black */
 const LAST_KEY = 'lumen-ambient-last';
 
+interface CachedLastAmbient { id: string; serverUrl?: string }
+
+function loadImageWithTimeout (url: string, timeoutMs = 12000): Promise<HTMLImageElement> {
+	return new Promise((resolve, reject) => {
+		const img = new Image();
+		let settled = false;
+		const timer = window.setTimeout(() => {
+			if (settled) return;
+			settled = true;
+			img.onload = null;
+			img.onerror = null;
+			img.src = '';
+			reject(new Error(`Image load timeout (${timeoutMs}ms)`));
+		}, timeoutMs);
+		img.onload = () => {
+			if (settled) return;
+			settled = true;
+			window.clearTimeout(timer);
+			if (typeof img.decode === 'function') {
+				img.decode().then(() => resolve(img), () => resolve(img));
+			} else {
+				resolve(img);
+			}
+		};
+		img.onerror = () => {
+			if (settled) return;
+			settled = true;
+			window.clearTimeout(timer);
+			reject(new Error('Image failed to load'));
+		};
+		img.src = url;
+	});
+}
+
 /** where the clock must move to sit on the home screen's clock, as a transform; '' when either is missing */
 function toHomeClock (clock: HTMLElement | null): string {
 	const home = document.querySelector('.screen:not(.ambient__status) > .pill.status .clock');
@@ -32,11 +66,24 @@ function toHomeClock (clock: HTMLElement | null): string {
  *  slides from its place top left to bottom left, and the first new photo loads only after that, so nothing heavy runs while the screen changes. */
 export function Ambient ({source, seconds = 30, backlight, weather, showPeriod, print, opening, onExit}: {source: string; seconds?: number; backlight?: number; weather?: Weather | null; showPeriod?: boolean; print?: boolean; opening?: {urls: string[]; id: string} | null; onExit: () => void}) {
 	// each layer holds one photo's URL, or two for a portrait pair shown side by side, and where they sit (placed on their faces)
-	const [last] = useState(() => (opening ? null : readCache<{id: string; urls: string[]}>(LAST_KEY)));
-	const first = opening || last;
-	const [layers, setLayers] = useState<[Layer, Layer]>([first ? {urls: first.urls, pos: first.id ? picturePosition(first.id) : ''} : NO_LAYER, NO_LAYER]);
+	const [last] = useState<CachedLastAmbient | null>(() => {
+		if (opening) return null;
+		const cached = readCache<any>(LAST_KEY);
+		if (!cached) return null;
+		// Auto purge old cache if it has urls array or contains apiKey
+		if (cached.urls || JSON.stringify(cached).indexOf('apiKey=') !== -1) {
+			writeCache(LAST_KEY, null);
+			return null;
+		}
+		return typeof cached.id === 'string' ? {id: cached.id, serverUrl: cached.serverUrl} : null;
+	});
+
+	const server = cachedServer();
+	const initialUrls = opening ? opening.urls : (last && server ? previewUrls(server, last.id) : []);
+	const initialId = opening ? opening.id : (last ? last.id : '');
+	const [layers, setLayers] = useState<[Layer, Layer]>([initialUrls.length > 0 ? {urls: initialUrls, pos: initialId ? picturePosition(initialId) : ''} : NO_LAYER, NO_LAYER]);
 	const [front, setFront] = useState(0);
-	const state = useRef({front: 0, shown: first ? first.id : '', alive: true, timer: 0});
+	const state = useRef({front: 0, shown: initialId, alive: true, timer: 0});
 	const warm = useRef(!!opening).current;
 	const status = useRef<HTMLDivElement>(null);
 	const root = useRef<HTMLDivElement>(null);
@@ -80,16 +127,12 @@ export function Ambient ({source, seconds = 30, backlight, weather, showPeriod, 
 				.then((id) => {
 					if (!id || !server || !s.alive) return null;
 					const urls = previewUrls(server, id);
-					return Promise.all(urls.map((url) => {
-						const img = new Image();
-						img.src = url;
-						return typeof img.decode === 'function' ? img.decode() : Promise.resolve();
-					})).then(() => ({id, urls}));
+					return Promise.all(urls.map((url) => loadImageWithTimeout(url))).then(() => ({id, urls}));
 				})
 				.then((pic) => {
 					if (!pic || !s.alive) return;
 					s.shown = pic.id;
-					writeCache(LAST_KEY, pic);
+					writeCache(LAST_KEY, {id: pic.id, serverUrl: server ? server.url : undefined});
 					const back = 1 - s.front;
 					setLayers((l) => { const n: [Layer, Layer] = [l[0], l[1]]; n[back] = {urls: pic.urls, pos: picturePosition(pic.id)}; return n; });
 					// two frames so the hidden layer has its picture before it becomes the visible one

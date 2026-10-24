@@ -20,8 +20,15 @@ echo "Copying $(basename "$IPK") to $LUMEN_TV_HOST..."
 scp -q "$IPK" "$LUMEN_TV_HOST:$REMOTE_IPK"
 
 echo "Installing $APP_ID..."
-# luna-send needs a tty (-tt) to print anything; the subscription ends when the install does.
-ssh -tt "$LUMEN_TV_HOST" "luna-send -w 60000 -i luna://com.webos.appInstallService/dev/install '{\"id\":\"com.ares.defaultName\",\"ipkUrl\":\"$REMOTE_IPK\",\"subscribe\":true}' | grep -oE '\"state\":\"[^\"]*\"|\"errorText\":\"[^\"]*\"' | uniq; rm -f '$REMOTE_IPK'" | tr -d '\r'
+INSTALL_OUTPUT=$(ssh -tt "$LUMEN_TV_HOST" "luna-send -w 60000 -i luna://com.webos.appInstallService/dev/install '{\"id\":\"com.ares.defaultName\",\"ipkUrl\":\"$REMOTE_IPK\",\"subscribe\":true}'; rm -f '$REMOTE_IPK'" | tr -d '\r')
+echo "$INSTALL_OUTPUT" | grep -oE '"state":"[^"]*"|"errorText":"[^"]*"' | uniq || true
+
+if echo "$INSTALL_OUTPUT" | grep -qE 'INSTALL_COMPLETED|"state":"SUCCESS"' && ! echo "$INSTALL_OUTPUT" | grep -qE '"errorText"|"state":"FAILED"'; then
+  echo "Installed $APP_ID successfully."
+else
+  echo "Installation of $APP_ID failed!" >&2
+  exit 1
+fi
 
 echo "Launching $APP_ID..."
 ssh -tt "$LUMEN_TV_HOST" "luna-send -n 1 luna://com.webos.applicationManager/launch '{\"id\":\"$APP_ID\"}'" | tr -d '\r'

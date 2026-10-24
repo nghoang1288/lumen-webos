@@ -51,10 +51,10 @@ To get the builds on the TV:
 
 1. Open the Homebrew Channel on the TV.
 2. Open the Channel's settings.
-3. Add this repository URL: `https://raw.githubusercontent.com/samrenfrew/lumen-webos/hbc-repo/stable/apps.json`
+3. Add this repository URL: `https://raw.githubusercontent.com/nghoang1288/lumen-webos/hbc-repo/stable/apps.json`
 4. Install Lumen from the Channel's app list.
 
-The [releases page](https://github.com/samrenfrew/lumen-webos/releases) also has each `.ipk`. You can install one with [Dev Manager](https://github.com/webosbrew/dev-manager-desktop/releases) or `ares-install`.
+The [releases page](https://github.com/nghoang1288/lumen-webos/releases) also has each `.ipk`. You can install one with [Dev Manager](https://github.com/webosbrew/dev-manager-desktop/releases) or `ares-install`.
 
 The public build does not include third-party app logos, private wallpapers or the SF font. Apps without an icon get a plain tile.
 

@@ -80,9 +80,38 @@ export function canUninstall (id: string): boolean {
 /** Removes an app: the developer-mode remover first (Homebrew Channel apps), then the store's. True once the TV no longer knows the app. */
 export function uninstallApp (id: string): Promise<boolean> {
 	if (!canUninstall(id)) return Promise.reject(new Error(`refused: uninstall ${id}`));
-	const present = `${luna('luna://com.webos.applicationManager/getAppInfo', {id})} 2>/dev/null | grep -q '"returnValue":true'`;
-	const remove = (service: string) => `if ${present}; then ${luna(`luna://com.webos.appInstallService/${service}`, {id, subscribe: false})} >/dev/null 2>&1; sleep 2; fi`;
-	return run(`${remove('dev/remove')}; ${remove('remove')}; if ${present}; then echo kept; else echo gone; fi`, 30000).then((text) => text.indexOf('gone') !== -1);
+	const checkCmd = `${luna('luna://com.webos.applicationManager/getAppInfo', {id})} 2>/dev/null`;
+	const removeCmd = (svc: string) => `${luna(`luna://com.webos.appInstallService/${svc}`, {id, subscribe: false})} >/dev/null 2>&1; sleep 2`;
+	const script = `
+OUT=$(${checkCmd})
+if echo "$OUT" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*true'; then
+  ${removeCmd('dev/remove')}
+  OUT2=$(${checkCmd})
+  if echo "$OUT2" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*true'; then
+    ${removeCmd('remove')}
+    OUT3=$(${checkCmd})
+    if echo "$OUT3" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*true'; then
+      echo KEPT
+    elif echo "$OUT3" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*false'; then
+      echo GONE
+    else
+      echo LUNA_ERROR
+    fi
+  elif echo "$OUT2" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*false'; then
+    echo GONE
+  else
+    echo LUNA_ERROR
+  fi
+elif echo "$OUT" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*false'; then
+  echo GONE
+else
+  echo LUNA_ERROR
+fi`.trim();
+	return run(script, 30000).then((text) => {
+		if (text.indexOf('GONE') !== -1) return true;
+		if (text.indexOf('KEPT') !== -1) return false;
+		throw new Error('luna-send communication failed during uninstall');
+	});
 }
 
 /** Icons as "<index> <base64>" lines, one per path; paths that are not plain absolute paths are skipped (their line is missing). */
@@ -144,11 +173,43 @@ export function eventList (channelIds: string[], localStart: string, localEnd: s
 	return run(luna('luna://com.webos.service.iepg/getEventList', {bFVPChannelId: true, channelId: channelIds, dataType: 0, fepgType: 'Forward', localStartTime: localStart, localEndTime: localEnd, sort: 0}), 12000);
 }
 
+export interface ParsedLunaResponse<T = Record<string, unknown>> {
+	ok: boolean;
+	data: T | null;
+	error?: string;
+}
+
+/** Parses a luna-send JSON response, handling webOS 25 whitespace variants and errorText. */
+export function parseLunaResponse<T = Record<string, unknown>> (text: string): ParsedLunaResponse<T> {
+	if (!text || !text.trim()) return {ok: false, data: null, error: 'empty response'};
+	const clean = text.trim();
+	try {
+		const data = JSON.parse(clean) as T & {returnValue?: boolean; errorText?: string; errorCode?: number | string};
+		if (data && typeof data === 'object') {
+			if (data.returnValue === false) return {ok: false, data, error: data.errorText || `error ${data.errorCode ?? 'unknown'}`};
+			return {ok: true, data};
+		}
+	} catch {
+		const match = clean.match(/\{[\s\S]*\}/);
+		if (match) {
+			try {
+				const data = JSON.parse(match[0]) as T & {returnValue?: boolean; errorText?: string; errorCode?: number | string};
+				if (data && typeof data === 'object') {
+					if (data.returnValue === false) return {ok: false, data, error: data.errorText || `error ${data.errorCode ?? 'unknown'}`};
+					return {ok: true, data};
+				}
+			} catch { /* ignore */ }
+		}
+	}
+	return {ok: false, data: null, error: 'invalid json response'};
+}
+
 /** Opens Live TV on a channel (from Home too). */
 export function openChannel (channelId: string): Promise<void> {
 	if (!CHANNEL_ID.test(channelId)) return Promise.reject(new Error('refused: channel id'));
 	return run(luna('luna://com.webos.service.apiadapter/tv/openChannel', {channelId})).then((text) => {
-		if (text.indexOf('"returnValue":false') !== -1) throw new Error('the TV refused the channel');
+		const res = parseLunaResponse(text);
+		if (!res.ok) throw new Error(res.error || 'the TV refused the channel');
 	});
 }
 
@@ -187,7 +248,8 @@ export function setSetting (key: string, value: string): Promise<void> {
 	const s = SETTINGS[key];
 	if (!s || (s.values && s.values.indexOf(value) === -1)) return Promise.reject(new Error(`refused: ${key}=${value}`));
 	return run(luna('luna://com.webos.settingsservice/setSystemSettings', {category: s.category, settings: {[key]: value}})).then((text) => {
-		if (text.indexOf('"returnValue":false') !== -1) throw new Error(`the TV refused ${key}=${value}`);
+		const res = parseLunaResponse(text);
+		if (!res.ok) throw new Error(res.error || `the TV refused ${key}=${value}`);
 	});
 }
 

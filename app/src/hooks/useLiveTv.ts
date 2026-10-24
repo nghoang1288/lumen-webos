@@ -147,7 +147,7 @@ export function useLiveTv (enabled: boolean, guideOpen: boolean, rowIds: string[
 	};
 
 	const refresh = (withChannels: boolean) => {
-		if (busy.current) return;
+		if (busy.current || document.hidden) return;
 		busy.current = true;
 		readAt.current = Date.now();
 		const channels = withChannels || !latest.current.data.channels.length ? readChannels() : Promise.resolve(latest.current.data.channels);
@@ -208,6 +208,18 @@ export function useLiveTv (enabled: boolean, guideOpen: boolean, rowIds: string[
 			else readGuide();     // reads only the channels whose read is old
 		}, 15000);
 		return () => window.clearInterval(id);
+	}, [enabled, started]);
+
+	useEffect(() => {
+		if (!enabled || !started) return undefined;
+		const onVisible = () => {
+			if (!document.hidden) {
+				setNow(minute());
+				refresh(latest.current.data.channels.length === 0);
+			}
+		};
+		document.addEventListener('visibilitychange', onVisible);
+		return () => document.removeEventListener('visibilitychange', onVisible);
 	}, [enabled, started]);
 
 	const listings = useMemo(() => mergeListings(sch.listings, data.listings), [sch.listings, data.listings]);

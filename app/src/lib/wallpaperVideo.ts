@@ -24,6 +24,10 @@ if (typeof document !== 'undefined') document.addEventListener('keydown', () => 
 function startWhenQuiet (): void {
 	const check = () => {
 		if (!enabled) return;
+		if (document.hidden) {
+			released = true;
+			return;
+		}
 		if (Date.now() - lastKey < 1500) { window.setTimeout(check, 700); return; }
 		playCurrent();
 	};
@@ -47,6 +51,10 @@ function shuffle (): number[] {
 
 function playCurrent (): void {
 	if (!video || !enabled || WALLPAPER_VIDEOS.length === 0) return;
+	if (document.hidden) {
+		released = true;
+		return;
+	}
 	if (order.length === 0) order = shuffle();
 	const url = WALLPAPER_VIDEOS[order[position % order.length]].url;
 	released = false;
@@ -85,8 +93,11 @@ function ensureVideo (): HTMLVideoElement {
 			video.pause();
 			// out of sight for a while: let go of the decoder and its buffers
 			releaseTimer = window.setTimeout(() => { if (video && enabled) { released = true; video.removeAttribute('src'); video.load(); } }, 5000);
-		} else if (released) playCurrent();
-		else if (!paused) video.play().catch(() => {});
+		} else if (released || !video.getAttribute('src')) {
+			playCurrent();
+		} else if (!paused) {
+			video.play().catch(() => {});
+		}
 	});
 	return video;
 }
