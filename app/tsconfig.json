@@ -13,6 +13,9 @@
     "isolatedModules": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "paths": {
+      "virtual:lumen-private": ["./src/config/virtual-lumen-private.ts"]
+    },
     "types": ["vite/client"]
   },
   "include": ["src"]

@@ -6,7 +6,7 @@
 // are made here, once per picture, from Immich's small thumbnail (fetched as base64, so the canvas is never tainted).
 
 import {readFile, immichRequest, immichStackIds} from './root';
-import {readCache, writeCache} from './boot';
+import {BOOT_WALLPAPER_KEY, readCache, writeCache} from './boot';
 import {loadConfig} from './storage';
 
 export interface ImmichServer { url: string; key: string }
@@ -39,6 +39,7 @@ export function loadServer (): Promise<ImmichServer | null> {
 			writeCache(POOL_KEY, null);
 			writeCache(STACKS_KEY, null);
 			writeCache('lumen-ambient-last', null);
+			writeCache(BOOT_WALLPAPER_KEY, null);
 			return null;
 		}
 		const j = JSON.parse(text) as {url?: string; key?: string};
@@ -49,6 +50,7 @@ export function loadServer (): Promise<ImmichServer | null> {
 			writeCache(POOL_KEY, null);
 			writeCache(STACKS_KEY, null);
 			writeCache('lumen-ambient-last', null);
+			writeCache(BOOT_WALLPAPER_KEY, null);
 		}
 		writeCache(SERVER_KEY, server);
 		return server;

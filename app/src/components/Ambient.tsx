@@ -121,7 +121,7 @@ export function Ambient ({source, seconds = 30, backlight, weather, showPeriod, 
 		let server: ImmichServer | null = cachedServer();
 		const advance = () => {
 			if (!s.alive) return;
-			const ready = server ? Promise.resolve(server) : loadServer();
+			const ready = loadServer();
 			ready
 				.then((srv) => { server = srv; return srv ? nextAsset(srv, source, s.shown) : null; })
 				.then((id) => {

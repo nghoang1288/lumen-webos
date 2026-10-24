@@ -56,16 +56,14 @@ export function keepOnly (keys: string[]): Promise<void> {
 /** Fetches a URL as a Blob with timeout (the resizer answers with Access-Control-Allow-Origin: *). */
 export function fetchBlob (url: string, timeoutMs = 12000): Promise<Blob> {
 	const controller = typeof AbortController !== 'undefined' ? new AbortController() : null;
-	const timer = controller ? window.setTimeout(() => controller.abort(), timeoutMs) : 0;
+	const timer = controller ? setTimeout(() => controller.abort(), timeoutMs) : 0;
 	return fetch(url, controller ? {signal: controller.signal} : {})
 		.then((r) => {
-			if (timer) window.clearTimeout(timer);
 			if (!r.ok) throw new Error(String(r.status));
 			return r.blob();
 		})
-		.catch((e) => {
-			if (timer) window.clearTimeout(timer);
-			throw e;
+		.finally(() => {
+			if (timer) clearTimeout(timer);
 		});
 }
 

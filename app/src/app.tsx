@@ -236,6 +236,8 @@ export function App () {
 
 	// a backlight left low by a screensaver that never ended goes back up
 	useEffect(() => afterFirstFrame(restoreLeftoverBacklight, 3000), []);
+	// refresh Immich server config in background on launch
+	useEffect(() => afterFirstFrame(() => { loadServer(); }, 1500), []);
 
 	// night: a dimmer wallpaper, always or between 19:00 and 06:00
 	useEffect(() => {

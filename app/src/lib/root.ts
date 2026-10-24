@@ -83,26 +83,39 @@ export function uninstallApp (id: string): Promise<boolean> {
 	const checkCmd = `${luna('luna://com.webos.applicationManager/getAppInfo', {id})} 2>/dev/null`;
 	const removeCmd = (svc: string) => `${luna(`luna://com.webos.appInstallService/${svc}`, {id, subscribe: false})} >/dev/null 2>&1; sleep 2`;
 	const script = `
-OUT=$(${checkCmd})
-if echo "$OUT" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*true'; then
-  ${removeCmd('dev/remove')}
-  OUT2=$(${checkCmd})
-  if echo "$OUT2" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*true'; then
-    ${removeCmd('remove')}
-    OUT3=$(${checkCmd})
-    if echo "$OUT3" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*true'; then
-      echo KEPT
-    elif echo "$OUT3" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*false'; then
-      echo GONE
-    else
-      echo LUNA_ERROR
-    fi
-  elif echo "$OUT2" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*false'; then
+check_status() {
+  local o="$1"
+  if echo "$o" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*true'; then
+    echo PRESENT
+  elif echo "$o" | grep -qiE 'does not exist|not found|not exist|not installed|unknown app|"errorCode"[[:space:]]*:[[:space:]]*-1'; then
     echo GONE
   else
     echo LUNA_ERROR
   fi
-elif echo "$OUT" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*false'; then
+}
+OUT=$(${checkCmd})
+S1=$(check_status "$OUT")
+if [ "$S1" = "PRESENT" ]; then
+  ${removeCmd('dev/remove')}
+  OUT2=$(${checkCmd})
+  S2=$(check_status "$OUT2")
+  if [ "$S2" = "PRESENT" ]; then
+    ${removeCmd('remove')}
+    OUT3=$(${checkCmd})
+    S3=$(check_status "$OUT3")
+    if [ "$S3" = "PRESENT" ]; then
+      echo KEPT
+    elif [ "$S3" = "GONE" ]; then
+      echo GONE
+    else
+      echo LUNA_ERROR
+    fi
+  elif [ "$S2" = "GONE" ]; then
+    echo GONE
+  else
+    echo LUNA_ERROR
+  fi
+elif [ "$S1" = "GONE" ]; then
   echo GONE
 else
   echo LUNA_ERROR
@@ -183,21 +196,24 @@ export interface ParsedLunaResponse<T = Record<string, unknown>> {
 export function parseLunaResponse<T = Record<string, unknown>> (text: string): ParsedLunaResponse<T> {
 	if (!text || !text.trim()) return {ok: false, data: null, error: 'empty response'};
 	const clean = text.trim();
-	try {
-		const data = JSON.parse(clean) as T & {returnValue?: boolean; errorText?: string; errorCode?: number | string};
-		if (data && typeof data === 'object') {
-			if (data.returnValue === false) return {ok: false, data, error: data.errorText || `error ${data.errorCode ?? 'unknown'}`};
-			return {ok: true, data};
+	const checkData = (data: unknown): ParsedLunaResponse<T> | null => {
+		if (data && typeof data === 'object' && !Array.isArray(data)) {
+			const obj = data as T & {returnValue?: boolean; errorText?: string; errorCode?: number | string};
+			if (obj.returnValue === true) return {ok: true, data: obj};
+			if (obj.returnValue === false) return {ok: false, data: obj, error: obj.errorText || `error ${obj.errorCode ?? 'unknown'}`};
+			return {ok: false, data: obj, error: 'missing returnValue in luna response'};
 		}
+		return null;
+	};
+	try {
+		const res = checkData(JSON.parse(clean));
+		if (res) return res;
 	} catch {
 		const match = clean.match(/\{[\s\S]*\}/);
 		if (match) {
 			try {
-				const data = JSON.parse(match[0]) as T & {returnValue?: boolean; errorText?: string; errorCode?: number | string};
-				if (data && typeof data === 'object') {
-					if (data.returnValue === false) return {ok: false, data, error: data.errorText || `error ${data.errorCode ?? 'unknown'}`};
-					return {ok: true, data};
-				}
+				const res = checkData(JSON.parse(match[0]));
+				if (res) return res;
 			} catch { /* ignore */ }
 		}
 	}

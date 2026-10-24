@@ -49,7 +49,7 @@ const BASE_DEFAULT_APP_IDS: string[] = [
 ];
 
 // Vite resolves this at build time; it's an empty object when the file doesn't exist.
-const localModules = import.meta.glob<LocalCatalog>('./catalog.local.ts', {eager: true});
+const localModules = (typeof import.meta.glob === 'function' ? import.meta.glob<LocalCatalog>('./catalog.local.ts', {eager: true}) : {}) as Record<string, LocalCatalog>;
 const local: LocalCatalog = localModules['./catalog.local.ts'] || {};
 
 function mergeCatalog (base: CatalogApp[], extra: CatalogApp[]): CatalogApp[] {

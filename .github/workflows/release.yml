@@ -43,6 +43,10 @@ jobs:
           open(os.environ['GITHUB_ENV'], 'a').write(f"VERSION={d['version']}\n")
           print(d['version'])
           PY
+      - name: Install dependencies
+        run: npm --prefix app ci
+      - name: Run unit & regression tests
+        run: npm --prefix app test
       - name: Build the .ipk
         env:
           LUMEN_DEV: ${{ github.ref_name == 'main' && '0' || '1' }}
