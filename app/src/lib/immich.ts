@@ -55,6 +55,7 @@ export function loadServer (): Promise<ImmichServer | null> {
 		const url = String(j.url || '').trim().replace(/\/+$/, '').replace(/\/api$/, '');
 		const server = j.key ? {url, key: String(j.key).trim()} : null;
 		const changed = prev ? (!server || prev.url !== server.url || prev.key !== server.key) : !!server;
+		writeCache(SERVER_KEY, server);
 		if (changed) {
 			writeCache(POOL_KEY, null);
 			writeCache(STACKS_KEY, null);
@@ -62,7 +63,6 @@ export function loadServer (): Promise<ImmichServer | null> {
 			clearImmichBootWallpaper();
 			if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('immich-server-changed'));
 		}
-		writeCache(SERVER_KEY, server);
 		return server;
 	}).catch(() => cachedServer());
 }

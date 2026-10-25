@@ -21,7 +21,12 @@ function open (): Promise<IDBDatabase> {
 		if (typeof indexedDB === 'undefined') { reject(new Error('no IndexedDB')); return; }
 		const req = indexedDB.open(DB, 1);
 		req.onupgradeneeded = () => { req.result.createObjectStore(STORE); };
-		req.onsuccess = () => resolve(req.result);
+		req.onsuccess = () => {
+			const db = req.result;
+			db.onclose = () => { opening = null; };
+			db.onversionchange = () => { db.close(); opening = null; };
+			resolve(db);
+		};
 		req.onerror = () => reject(req.error);
 	});
 	opening.catch(() => { opening = null; });

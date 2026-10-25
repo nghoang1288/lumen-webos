@@ -273,8 +273,16 @@ export function withWallpaper (c: UserConfig): UserConfig {
 }
 
 export function saveConfig (config: UserConfig): void {
-	try { localStorage.setItem(STORAGE_KEY, JSON.stringify(config)); }
-	catch { /* nothing sensible to do on a TV */ }
+	try {
+		localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+	} catch {
+		try {
+			// If localStorage quota is exceeded, clear disposable image caches to prioritize user config
+			localStorage.removeItem('launcher-icon-cache-v1');
+			localStorage.removeItem('lumen-livetv-logos-v2');
+			localStorage.setItem(STORAGE_KEY, JSON.stringify(config));
+		} catch { /* storage genuinely full */ }
+	}
 }
 
 /** Toggle an ID in an ordered list: remove if present, else append. */

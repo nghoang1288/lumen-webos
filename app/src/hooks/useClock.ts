@@ -6,8 +6,21 @@ import {TIMING} from '../config/constants';
 export function useClock (): Date {
 	const [now, setNow] = useState(() => new Date());
 	useEffect(() => {
-		const id = window.setInterval(() => setNow(new Date()), TIMING.clockTickMs);
-		return () => window.clearInterval(id);
+		let id = 0;
+		const tick = () => setNow(new Date());
+		const start = () => {
+			if (id) window.clearInterval(id);
+			if (!document.hidden) {
+				tick();
+				id = window.setInterval(tick, TIMING.clockTickMs);
+			}
+		};
+		start();
+		document.addEventListener('visibilitychange', start);
+		return () => {
+			if (id) window.clearInterval(id);
+			document.removeEventListener('visibilitychange', start);
+		};
 	}, []);
 	return now;
 }

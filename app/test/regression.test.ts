@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { parseLunaResponse, shellQuote } from '../src/lib/root';
-import { parseConfig, WP_AUTO_CHOICES } from '../src/lib/storage';
+import { parseConfig, saveConfig, WP_AUTO_CHOICES } from '../src/lib/storage';
 import { fetchBlob } from '../src/lib/wpstore';
 import { APP_CATALOG, DEFAULT_APP_IDS } from '../src/config/catalog';
 import { BOOT_WALLPAPER_KEY, readCache, writeCache } from '../src/lib/boot';
@@ -186,16 +186,19 @@ describe('6. Immich Boot Wallpaper Isolation & Key Refresh', () => {
 		expect(readCache(BOOT_WALLPAPER_KEY)).toBeNull();
 	});
 
-	it('dispatches immich-server-changed when server changes', async () => {
-		const spyEvent = vi.fn();
-		window.addEventListener('immich-server-changed', spyEvent);
+	it('dispatches immich-server-changed and ensures cachedServer() is updated before event handler runs', async () => {
+		let cachedInsideHandler: any = null;
+		const handler = () => {
+			cachedInsideHandler = cachedServer();
+		};
+		window.addEventListener('immich-server-changed', handler);
 
 		vi.spyOn(rootModule, 'readFile').mockResolvedValue(JSON.stringify({ url: 'http://192.168.1.50:2283', key: 'new-key' }));
 
 		await loadServer();
 
-		expect(spyEvent).toHaveBeenCalled();
-		window.removeEventListener('immich-server-changed', spyEvent);
+		expect(cachedInsideHandler).toEqual({ url: 'http://192.168.1.50:2283', key: 'new-key' });
+		window.removeEventListener('immich-server-changed', handler);
 	});
 });
 
@@ -210,5 +213,31 @@ describe('7. Catalog & Shell Quoting', () => {
 		expect(shellQuote('/var/log/test.log')).toBe("'/var/log/test.log'");
 		expect(shellQuote("it's a quote")).toBe("'/var/log/test.log'".length > 0 ? "'it'\\''s a quote'" : "");
 		expect(shellQuote('foo; rm -rf /')).toBe("'foo; rm -rf /'");
+	});
+});
+
+describe('8. saveConfig QuotaExceeded Resilience', () => {
+	it('clears large image caches and saves config when quota is exceeded', () => {
+		let quotaTriggered = false;
+		const origSetItem = localStorage.setItem;
+		localStorage.setItem('launcher-icon-cache-v1', 'huge-icon-data');
+		localStorage.setItem('lumen-livetv-logos-v2', 'huge-logo-data');
+
+		localStorage.setItem = (k: string, v: string) => {
+			if (!quotaTriggered && k === 'launcher-config-v2') {
+				quotaTriggered = true;
+				throw new DOMException('Quota exceeded', 'QuotaExceededError');
+			}
+			return origSetItem.call(localStorage, k, v);
+		};
+
+		const dummyConfig = { ...parseConfig('{}'), wallpaper: 'custom-wp' };
+		saveConfig(dummyConfig);
+
+		expect(localStorage.getItem('launcher-icon-cache-v1')).toBeNull();
+		expect(localStorage.getItem('lumen-livetv-logos-v2')).toBeNull();
+		expect(localStorage.getItem('launcher-config-v2')).toContain('custom-wp');
+
+		localStorage.setItem = origSetItem;
 	});
 });

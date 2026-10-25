@@ -797,7 +797,11 @@ export function App () {
 				if (!gone) { showToast(`${title} is still installed`, 'error'); return; }
 				const now = configRef.current;
 				updateConfig({...now, appIds: now.appIds.filter((id) => id !== key), folders: strip(now.folders).filter((f) => f.appIds.length > 0)});
-				setApps((list) => list.filter((a) => a.id !== key));
+				setApps((list) => {
+					const next = list.filter((a) => a.id !== key);
+					saveAppsCache(now.useHomebrew, now.showAllApps, next);
+					return next;
+				});
 				showToast(`${title} uninstalled`);
 			}, () => showToast(`Couldn't uninstall ${title}`, 'error'));
 			return;

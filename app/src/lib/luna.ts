@@ -47,6 +47,7 @@ export function lunaCall<T extends LunaResponse = LunaResponse> (uri: string, pa
 			settled = true;
 			window.clearTimeout(timer);
 			try { bridge.cancel && bridge.cancel(); } catch { /* ignore */ }
+			try { (bridge as unknown as {onservicecallback?: unknown}).onservicecallback = null; } catch { /* ignore */ }
 			fn();
 		};
 		const timer = window.setTimeout(() => finish(() => reject(new Error(`Timed out: ${uri}`))), timeoutMs);

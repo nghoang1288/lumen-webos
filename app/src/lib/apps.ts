@@ -217,7 +217,18 @@ function sampled (id: string, img: HTMLImageElement, outcome: string, t: number)
 function sampleColor (url: string, id: string): Promise<string | undefined> {
 	return new Promise((resolve) => {
 		const img = new Image();
+		let done = false;
+		const timer = window.setTimeout(() => {
+			if (done) return;
+			done = true;
+			img.onload = null;
+			img.onerror = null;
+			resolve(undefined);
+		}, 3000);
 		img.onload = () => {
+			if (done) return;
+			done = true;
+			window.clearTimeout(timer);
 			const t = performance.now();
 			try {
 				// a 16 x 16 copy: reading back a handful of pixels from a small canvas is cheap, from a full-size icon it freezes the TV
@@ -243,7 +254,13 @@ function sampleColor (url: string, id: string): Promise<string | undefined> {
 				resolve(best && best.rgb);
 			} catch { sampled(id, img, 'taint', t); resolve(undefined); }
 		};
-		img.onerror = () => { sampled(id, img, 'error', performance.now()); resolve(undefined); };
+		img.onerror = () => {
+			if (done) return;
+			done = true;
+			window.clearTimeout(timer);
+			sampled(id, img, 'error', performance.now());
+			resolve(undefined);
+		};
 		img.src = url;
 	});
 }

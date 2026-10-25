@@ -1,4 +1,4 @@
-import {useRef} from 'preact/hooks';
+import {useEffect, useRef} from 'preact/hooks';
 import {CheckMark, Glyph, type GlyphName} from './Glyph';
 import {ChannelTile, type LiveTile} from './ChannelTile';
 
@@ -44,6 +44,15 @@ export function Tile ({model, focused, lifted, checked, dimmed, onHover, onActiv
 	if (model.live) return <ChannelTile live={model.live} classes={classes} onHover={onHover} onActivate={onActivate} />;
 	const rectRef = useRef<DOMRect | null>(null);
 	const boxRef = useRef<HTMLElement | null>(null);
+
+	useEffect(() => {
+		if (!focused && boxRef.current) {
+			boxRef.current.style.removeProperty('--rx');
+			boxRef.current.style.removeProperty('--ry');
+			boxRef.current = null;
+			rectRef.current = null;
+		}
+	}, [focused]);
 
 	const handleMouseEnter = (e: MouseEvent) => {
 		const el = e.currentTarget as HTMLElement;

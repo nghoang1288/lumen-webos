@@ -32,11 +32,25 @@ function loadImageWithTimeout (url: string, timeoutMs = 12000): Promise<HTMLImag
 		}, timeoutMs);
 		img.onload = () => {
 			if (settled) return;
-			settled = true;
-			window.clearTimeout(timer);
 			if (typeof img.decode === 'function') {
-				img.decode().then(() => resolve(img), () => resolve(img));
+				img.decode()
+					.then(() => {
+						if (!settled) {
+							settled = true;
+							window.clearTimeout(timer);
+							resolve(img);
+						}
+					})
+					.catch((e) => {
+						if (!settled) {
+							settled = true;
+							window.clearTimeout(timer);
+							reject(e || new Error('Image decode failed'));
+						}
+					});
 			} else {
+				settled = true;
+				window.clearTimeout(timer);
 				resolve(img);
 			}
 		};
@@ -136,7 +150,11 @@ export function Ambient ({source, seconds = 30, backlight, weather, showPeriod, 
 					const back = 1 - s.front;
 					setLayers((l) => { const n: [Layer, Layer] = [l[0], l[1]]; n[back] = {urls: pic.urls, pos: picturePosition(pic.id)}; return n; });
 					// two frames so the hidden layer has its picture before it becomes the visible one
-					window.requestAnimationFrame(() => window.requestAnimationFrame(() => { s.front = back; setFront(back); }));
+					window.requestAnimationFrame(() => window.requestAnimationFrame(() => {
+						if (!s.alive) return;
+						s.front = back;
+						setFront(back);
+					}));
 				})
 				.catch(() => undefined)
 				.then(() => { if (s.alive) s.timer = window.setTimeout(advance, seconds * 1000); });
