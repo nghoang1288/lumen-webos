@@ -238,6 +238,16 @@ export function App () {
 	useEffect(() => afterFirstFrame(restoreLeftoverBacklight, 3000), []);
 	// refresh Immich server config in background on launch
 	useEffect(() => afterFirstFrame(() => { loadServer(); }, 1500), []);
+	// reload wallpaper if Immich server or key changed and wallpaper is from Immich
+	useEffect(() => {
+		const onServerChanged = () => {
+			if (config.wallpaper.indexOf('immich:') === 0) {
+				setWallpaper(config.wallpaper);
+			}
+		};
+		window.addEventListener('immich-server-changed', onServerChanged);
+		return () => window.removeEventListener('immich-server-changed', onServerChanged);
+	}, [config.wallpaper]);
 
 	// night: a dimmer wallpaper, always or between 19:00 and 06:00
 	useEffect(() => {

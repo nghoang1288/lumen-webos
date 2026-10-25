@@ -87,7 +87,7 @@ check_status() {
   local o="$1"
   if echo "$o" | grep -qE '"returnValue"[[:space:]]*:[[:space:]]*true'; then
     echo PRESENT
-  elif echo "$o" | grep -qiE 'does not exist|not found|not exist|not installed|unknown app|"errorCode"[[:space:]]*:[[:space:]]*-1'; then
+  elif echo "$o" | grep -qiE 'app(lication)?[[:space:]]*(does not exist|not found|not installed|unknown)|(does not exist|not found|not installed)[[:space:]]*app(lication)?'; then
     echo GONE
   else
     echo LUNA_ERROR

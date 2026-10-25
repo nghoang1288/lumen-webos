@@ -6,7 +6,7 @@
 // are made here, once per picture, from Immich's small thumbnail (fetched as base64, so the canvas is never tainted).
 
 import {readFile, immichRequest, immichStackIds} from './root';
-import {BOOT_WALLPAPER_KEY, readCache, writeCache} from './boot';
+import {BOOT_WALLPAPER_KEY, readCache, writeCache, type BootWallpaper} from './boot';
 import {loadConfig} from './storage';
 
 export interface ImmichServer { url: string; key: string }
@@ -27,6 +27,13 @@ const SERVER_KEY = 'lumen-immich-server-v1';
 const POOL_KEY = 'lumen-immich-pool-v1';
 const SHOWN_MAX = 40;      // pictures remembered as recently shown, so a shuffle does not repeat them
 
+function clearImmichBootWallpaper (): void {
+	const boot = readCache<BootWallpaper>(BOOT_WALLPAPER_KEY);
+	if (boot && ((boot.sel && boot.sel.indexOf('immich:') === 0) || (boot.next && boot.next.indexOf('immich:') === 0))) {
+		writeCache(BOOT_WALLPAPER_KEY, null);
+	}
+}
+
 /** The server as last read from the TV (kept in localStorage so a cold start needs no root call to build the picture URL). */
 export function cachedServer (): ImmichServer | null { return readCache<ImmichServer>(SERVER_KEY); }
 
@@ -35,22 +42,25 @@ export function loadServer (): Promise<ImmichServer | null> {
 	return readFile('immich.json').then((text) => {
 		const prev = cachedServer();
 		if (!text.trim()) {
+			const wasConfigured = !!prev;
 			writeCache(SERVER_KEY, null);
 			writeCache(POOL_KEY, null);
 			writeCache(STACKS_KEY, null);
 			writeCache('lumen-ambient-last', null);
-			writeCache(BOOT_WALLPAPER_KEY, null);
+			clearImmichBootWallpaper();
+			if (wasConfigured && typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('immich-server-changed'));
 			return null;
 		}
 		const j = JSON.parse(text) as {url?: string; key?: string};
 		const url = String(j.url || '').trim().replace(/\/+$/, '').replace(/\/api$/, '');
 		const server = j.key ? {url, key: String(j.key).trim()} : null;
-		const changed = !prev || !server || prev.url !== server.url || prev.key !== server.key;
+		const changed = prev ? (!server || prev.url !== server.url || prev.key !== server.key) : !!server;
 		if (changed) {
 			writeCache(POOL_KEY, null);
 			writeCache(STACKS_KEY, null);
 			writeCache('lumen-ambient-last', null);
-			writeCache(BOOT_WALLPAPER_KEY, null);
+			clearImmichBootWallpaper();
+			if (typeof window !== 'undefined') window.dispatchEvent(new CustomEvent('immich-server-changed'));
 		}
 		writeCache(SERVER_KEY, server);
 		return server;
