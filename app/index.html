@@ -16,37 +16,103 @@
   </head>
   <body>
     <div id="wpimage"></div>
+    <div id="root"></div>
+
     <script>
       // The keys are BOOT_WALLPAPER_KEY (lib/boot.ts) and STORAGE_KEY (config/constants.ts); lib/wallpaper.ts takes this element over.
       (function () {
         try {
+          var now = new Date();
+          var hour = now.getHours();
           var config = JSON.parse(localStorage.getItem('launcher-config-v2') || '{}');
           // Live blur from the first frame, or the glass first shows the heavier blurred copy; Dock blur as lib/storage.ts reads it
           document.documentElement.classList.add('liveblur');
           if (config.dockBlur === true) document.documentElement.classList.add('dockblur');
-          var boot = JSON.parse(localStorage.getItem('lumen-boot-wallpaper-v1') || 'null');
-          if (!boot || !(boot.url || boot.bg)) return;
-          if (boot.sel && config.wallpaper && boot.sel !== config.wallpaper) return;
           var root = document.documentElement;
-          var hour = new Date().getHours();
           var dim = config.wallpaperDim || (config.nightDim === true ? 'night' : 'off');
           if (dim === 'always' || (dim === 'night' && (hour >= 19 || hour < 6))) root.classList.add('night');
-          root.classList.add('wp-image');
-          if (boot.url) {
-            // a bundled picture: sharp at once
-            if (boot.blur) root.style.setProperty('--wp-blur', boot.blur);
-            if (boot.bg) root.style.setProperty('--wp-bg', boot.bg);
-            document.getElementById('wpimage').style.backgroundImage = 'url("' + boot.url + '")';
-          } else {
-            // a cloud or Immich picture: its strong blur (a data: URL) until the sharp one fades in over it
-            var bg = 'url("' + boot.bg + '")';
-            root.style.setProperty('--wp-bg', bg);
-            root.style.setProperty('--wp-blur', boot.blur ? 'url("' + boot.blur + '")' : bg);
-            document.getElementById('wpimage').style.backgroundImage = bg;
+
+          var boot = JSON.parse(localStorage.getItem('lumen-boot-wallpaper-v1') || 'null');
+          if (boot && (boot.url || boot.bg) && (!boot.sel || !config.wallpaper || boot.sel === config.wallpaper)) {
+            root.classList.add('wp-image');
+            if (boot.url) {
+              // a bundled picture: sharp at once
+              if (boot.blur) root.style.setProperty('--wp-blur', boot.blur);
+              if (boot.bg) root.style.setProperty('--wp-bg', boot.bg);
+              document.getElementById('wpimage').style.backgroundImage = 'url("' + boot.url + '")';
+            } else {
+              // a cloud or Immich picture: its strong blur (a data: URL) until the sharp one fades in over it
+              var bg = 'url("' + boot.bg + '")';
+              root.style.setProperty('--wp-bg', bg);
+              root.style.setProperty('--wp-blur', boot.blur ? 'url("' + boot.blur + '")' : bg);
+              document.getElementById('wpimage').style.backgroundImage = bg;
+            }
+          }
+
+          // Instant Boot UI Skeleton: render clock, weather, and cached app tiles immediately
+          var bootApps = JSON.parse(localStorage.getItem('lumen-boot-apps-v1') || 'null');
+          var iconCache = JSON.parse(localStorage.getItem('launcher-icon-cache-v1') || '{}');
+          var weather = JSON.parse(localStorage.getItem('launcher-weather-v3-Hanoi') || 'null');
+          
+          var h = hour % 12 || 12;
+          var m = String(now.getMinutes()).padStart(2, '0');
+          var period = hour >= 12 ? 'PM' : 'AM';
+          var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+          var months = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+          var dateStr = days[now.getDay()] + ' ' + months[now.getMonth()] + ' ' + now.getDate();
+
+          var weatherHtml = '';
+          if (weather && weather.w) {
+            weatherHtml = '<span class="status__weather">' +
+              '<svg class="status__icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M11.2 4.6a3.8 3.8 0 0 0 4.4 5.2 3.8 3.8 0 0 1-5.3 1.9M9 19h8.5a3 3 0 0 0 .3-6 4.6 4.6 0 0 0-8.9-1A3.5 3.5 0 0 0 9 19z"></path></svg>' +
+              '<span>' + weather.w.temp + '°</span><span class="status__cond">' + (weather.w.label || '') + '</span></span>';
+          }
+
+          var tilesHtml = '';
+          if (bootApps && Array.isArray(bootApps.apps)) {
+            bootApps.apps.slice(0, 10).forEach(function (app) {
+              var iconSrc = app.iconUrl || '';
+              if (iconSrc.indexOf('@icon:') === 0) {
+                var key = iconSrc.slice(6);
+                iconSrc = iconCache[key] || '';
+              }
+              var bg = app.color || 'rgb(255, 255, 255)';
+              tilesHtml += '<div class="tile">' +
+                '<div class="tile__dot"></div>' +
+                '<div class="tile__box" style="background: ' + bg + ';">' +
+                  (iconSrc ? '<img class="tile__image tile__image--icon" src="' + iconSrc + '" alt="" decoding="async">' : '') +
+                '</div>' +
+                '<div class="tile__label">' + (app.title || '') + '</div>' +
+              '</div>';
+            });
+          }
+
+          var rootEl = document.getElementById('root');
+          if (rootEl && tilesHtml) {
+            rootEl.innerHTML = '<div class="screen">' +
+              '<div class="dockdim"></div>' +
+              '<div class="pill status">' +
+                '<div class="clock">' +
+                  '<div class="clock__time"><span>' + h + '</span><span class="clock__colon">:</span><span>' + m + '</span><span class="clock__period">' + period + '</span></div>' +
+                '</div>' +
+                '<div class="status__row">' +
+                  '<span class="status__date">' + dateStr + '</span>' +
+                  weatherHtml +
+                '</div>' +
+              '</div>' +
+              '<section class="row row--focused" style="--row-w:1670px; --sel-x:-715px;">' +
+                '<h2 class="row__label">Apps</h2>' +
+                '<div class="row__viewport">' +
+                  '<div class="row__track row__track--centered" style="transform: translateX(0px);">' +
+                    tilesHtml +
+                  '</div>' +
+                '</div>' +
+              '</section>' +
+            '</div>';
           }
         } catch (e) { /* no stored wallpaper: the app loads it as before */ }
       })();
     </script>
-    <div id="root"></div>
+
   </body>
 </html>

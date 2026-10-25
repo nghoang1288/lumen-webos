@@ -75,9 +75,13 @@ note_recent() {
   { echo "$1"; [ -f "$RECENT" ] && grep -vxF "$1" "$RECENT"; } | head -n 8 > "$RECENT.tmp" && mv "$RECENT.tmp" "$RECENT"
 }
 
+wakelast=0
 # opens Lumen without waiting (a launch can take seconds right after a wake), unless the last one is still in flight; $1 is the app in front
 wake_open() {
+  now_wake=$(date +%s)
+  [ $((now_wake - wakelast)) -ge 0 ] && [ $((now_wake - wakelast)) -lt 3 ] && return
   [ "$launchpid" -gt 0 ] && [ -d "/proc/$launchpid" ] && return
+  wakelast=$now_wake
   target=$(me_target) || return
   ( r=$(luna-send -n 1 luna://com.webos.applicationManager/launch "{\"id\":\"$target\"}" </dev/null 2>&1)
     log_msg "wake: open $target over ${1:-nothing}: $r" ) &
@@ -116,7 +120,7 @@ while true; do
     fi
   fi
   case "$out" in
-    *'"appId":"'$LGHOME'"'*)
+    *'"appId":"'$LGHOME'"'*|*'"appId":"com.webos.app.fullhome"'*)
       # LG Home is in front. Unless the launcher's own LG Home button just asked for it, send it to the launcher, and keep trying (every 3 s) until it
       # works: right after a cold boot LG Home is the first thing on screen and the launcher may not be ready yet.
       now=$(date +%s)

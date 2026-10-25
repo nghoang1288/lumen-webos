@@ -19,6 +19,9 @@ REMOTE_IPK="/tmp/$(basename "$IPK")"
 echo "Copying $(basename "$IPK") to $LUMEN_TV_HOST..."
 scp -q "$IPK" "$LUMEN_TV_HOST:$REMOTE_IPK"
 
+echo "Closing $APP_ID before install to prevent webOS 5 SAM deadlock..."
+ssh -tt "$LUMEN_TV_HOST" "touch /tmp/allow_lg_home; luna-send -n 1 luna://com.webos.applicationManager/launch '{\"id\":\"com.webos.app.home\"}' >/dev/null 2>&1 || true; luna-send -n 1 luna://com.webos.applicationManager/closeByAppId '{\"id\":\"$APP_ID\"}' >/dev/null 2>&1 || true; sleep 2" | tr -d '\r'
+
 echo "Installing $APP_ID..."
 INSTALL_OUTPUT=$(ssh -tt "$LUMEN_TV_HOST" "luna-send -w 60000 -i luna://com.webos.appInstallService/dev/install '{\"id\":\"com.ares.defaultName\",\"ipkUrl\":\"$REMOTE_IPK\",\"subscribe\":true}'; rm -f '$REMOTE_IPK'" | tr -d '\r')
 echo "$INSTALL_OUTPUT" | grep -oE '"state"[[:space:]]*:[[:space:]]*"[^"]*"|"errorText"[[:space:]]*:[[:space:]]*"[^"]*"' | uniq || true

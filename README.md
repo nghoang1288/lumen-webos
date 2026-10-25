@@ -15,7 +15,7 @@ This repository is a personal fork of [ammar027/lumen-webos](https://github.com/
 
 The original project was written for an LG 65UQ8040PSB on webOS 22 (Chromium 87). Some rules in the code were tuned for that TV. This fork treats each of those rules as an assumption until it works on the TV above. [PLAN.md](PLAN.md) lists what is still to verify.
 
-The build still targets `chrome79` and a classic script, not a module. The TV's graphics chip is weak, so only `transform` and `opacity` animate.
+The build targets `chrome60` and a classic script, not a module, ensuring compatibility from webOS 5 (Chromium 68) up to webOS 25. The TV's graphics chip is weak, so only `transform` and `opacity` animate. See [docs/webos5-upgrade-notes.md](docs/webos5-upgrade-notes.md) for webOS 5 details.
 
 ## What this fork adds
 
@@ -150,6 +150,7 @@ The TV's graphics chip is the main limit on this project. These documents record
 | Document | What it covers |
 |---|---|
 | [RESEARCH.md](RESEARCH.md) | tvOS design rules, Liquid Glass, TV browser performance, and the cost of each glass effect on this TV. |
+| [docs/webos5-upgrade-notes.md](docs/webos5-upgrade-notes.md) | WebOS 5.x (Chromium 68) upgrade notes: SAM deadlock prevention, browser compatibility, CRLF script fixes, Instant Boot Skeleton, and SSH JSON escaping. |
 | [docs/frame-rate.md](docs/frame-rate.md) | What limits the frame rate (the GPU draw of each frame), and the scripts that measure it. |
 | [docs/down-up-lag-review.md](docs/down-up-lag-review.md) | A review of the lag on Down and Up, and the test results that got it to about 40 fps. |
 | [docs/startup-perf.md](docs/startup-perf.md) | The cold-start freeze, its fix, and how to read the boot timeline. |

@@ -7,13 +7,13 @@ import preact from '@preact/preset-vite';
 const APP_DIR = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(APP_DIR, '..');
 
-// webOS 6.x runs Chrome 79. Two things matter for that engine:
-//  1. Module scripts (`<script type="module">`) are refused when loaded from file://
-//     because the sandbox serves them with no MIME type, so the bundle must be a
-//     classic script.
-//  2. ES2020 syntax such as `?.` and `??` is a SyntaxError, so everything
-//     (dependencies included) is compiled down to the chrome79 target.
-const BROWSER_TARGET = 'chrome79';
+// webOS 5.x runs Chromium 68 (V8 6.8); webOS 6.x runs Chromium 79; newer webOS 22/24/25 run Chromium 87-120+.
+//  1. Classic script: Module scripts (`<script type="module">`) are refused when loaded from file://
+//     because the sandbox serves them with no MIME type, so the bundle must be a classic deferred script.
+//  2. JavaScript compatibility: target 'chrome60' ensures that ES2019/ES2020 syntax (such as
+//     optional catch binding `catch {}` without variable, optional chaining `?.`, and nullish coalescing `??`)
+//     is transpiled down, avoiding SyntaxError on webOS 5.x Chromium 68 / V8 6.8 as well as webOS 6+ / 22+ / 25.
+const BROWSER_TARGET = 'chrome60';
 
 /** Rewrites Vite's module entry tag into a classic deferred script tag. */
 function classicScriptTag (): Plugin {
@@ -105,12 +105,13 @@ function classicScriptTag (): Plugin {
 			outDir: 'dist',
 			modulePreload: false,
 			cssTarget: BROWSER_TARGET,
+			cssCodeSplit: false,
 			rollupOptions: {
 				output: {
 					format: 'iife',
 					inlineDynamicImports: true,
 					entryFileNames: 'assets/app.js',
-					assetFileNames: 'assets/[name][extname]'
+					assetFileNames: (assetInfo) => assetInfo.name && assetInfo.name.endsWith('.css') ? 'assets/app.css' : 'assets/[name][extname]'
 				}
 			}
 		}
